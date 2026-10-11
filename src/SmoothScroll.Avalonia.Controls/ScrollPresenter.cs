@@ -620,8 +620,8 @@ public partial class ScrollPresenter : ContentPresenter, IScrollable, IScrollAnc
         _presenterLoaded = false;
         UpdateVerticalScrollAttachment();
         var compositionVisual = GetCompositionVisual();
-        InterruptOperations();
-        SetInteractionState(ScrollingInteractionState.Idle);
+        // Reattach from the last published viewport, not an unacknowledged request on the detached tracker.
+        DisposeInteractionTracker();
         base.OnDetachedFromVisualTree(e);
         StopArrangeTimer();
         ClearScrollAnimation(compositionVisual);
