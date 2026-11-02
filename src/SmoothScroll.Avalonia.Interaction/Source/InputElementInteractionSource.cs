@@ -106,6 +106,9 @@ public sealed class InputElementInteractionSource : IDisposable
     private void OnPointerWheelChanged(object? sender, PointerWheelEventArgs e)
     {
         UpdateChainingTarget();
+        // AutoScroll can map a vertical wheel to horizontal motion in this viewer.
+        // At a boundary, let an ancestor reinterpret the original wheel on either axis.
+        var hasWheelChainingTarget = HasHorizontalChainingTarget || HasVerticalChainingTarget;
         var deltaScale = IsPrecisionTouchpadScroll(e) ? TouchpadDeltaScale : MouseWheelDeltaScale;
         var translation = default(Vector);
         var scaleLogDelta = 0.0;
@@ -122,7 +125,7 @@ public sealed class InputElementInteractionSource : IDisposable
                     _tracker.MinPosition.X,
                     _tracker.MaxPosition.X,
                     PositionXChainingMode,
-                    HasHorizontalChainingTarget))
+                    hasWheelChainingTarget))
             {
                 translation = translation.WithX(0);
             }
@@ -137,7 +140,7 @@ public sealed class InputElementInteractionSource : IDisposable
                     _tracker.MinPosition.Y,
                     _tracker.MaxPosition.Y,
                     PositionYChainingMode,
-                    HasVerticalChainingTarget) && !_tracker.CanConsumeVerticalInputAtBoundary(translation.Y))
+                    hasWheelChainingTarget) && !_tracker.CanConsumeVerticalInputAtBoundary(translation.Y))
             {
                 translation = translation.WithY(0);
             }
