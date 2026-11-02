@@ -82,6 +82,8 @@ jobs:
                   --configuration Release
                   --no-restore
                   -p:PackageVersion=${{ env.PACKAGE_VERSION }}
+                  -p:IncludeSymbols=true
+                  -p:SymbolPackageFormat=snupkg
                   --output ${{ env.PACKAGE_OUTPUT_DIR }}
 
             - name: Pack Interaction
@@ -90,13 +92,17 @@ jobs:
                   --configuration Release
                   --no-restore
                   -p:PackageVersion=${{ env.PACKAGE_VERSION }}
+                  -p:IncludeSymbols=true
+                  -p:SymbolPackageFormat=snupkg
                   --output ${{ env.PACKAGE_OUTPUT_DIR }}
 
             - name: Upload package artifact
               uses: actions/upload-artifact@v4
               with:
                   name: SmoothScroll.Avalonia.${{ env.PACKAGE_VERSION }}
-                  path: ${{ env.PACKAGE_OUTPUT_DIR }}/*.nupkg
+                  path: |
+                      ${{ env.PACKAGE_OUTPUT_DIR }}/*.nupkg
+                      ${{ env.PACKAGE_OUTPUT_DIR }}/*.snupkg
                   if-no-files-found: error
 
             - name: Push to NuGet
@@ -104,4 +110,5 @@ jobs:
                   dotnet nuget push "${{ env.PACKAGE_OUTPUT_DIR }}/*.nupkg"
                   --source ${{ env.NUGET_SOURCE }}
                   --api-key ${{ secrets.GITHUB_TOKEN }}
+                  --no-symbols
                   --skip-duplicate
