@@ -509,7 +509,12 @@ public partial class ScrollPresenter : ContentPresenter, IScrollable, IScrollAnc
             return false;
 
         if (IsLogicalScrollActive && target is Control targetControl)
-            return BringLogicalDescendantIntoView(targetControl, targetRect, isAnimated);
+        {
+            var moved = BringLogicalDescendantIntoView(targetControl, targetRect, isAnimated);
+            if (!moved)
+                CancelPendingScroll();
+            return moved;
+        }
 
         var transform = target.TransformToVisual(child);
         if (transform is null)
@@ -525,7 +530,10 @@ public partial class ScrollPresenter : ContentPresenter, IScrollable, IScrollAnc
         var minY = ComputeScrollOffsetWithMinimalScroll(viewport.Top, viewport.Bottom, rectangle.Top, rectangle.Bottom);
         var endPosition = ClampOffsetToEnabledAxes(new Vector(minX, minY));
         if (Offset.NearlyEquals(endPosition))
+        {
+            CancelPendingScroll();
             return false;
+        }
 
         var startingPosition = Offset;
         if (!isAnimated || _interactionTracker is null || GetCompositionVisual() is not { } visual)
@@ -559,6 +567,19 @@ public partial class ScrollPresenter : ContentPresenter, IScrollable, IScrollAnc
         _scrollRequestId = _interactionTracker.TryUpdatePositionWithAnimation(args.Animation);
         _requestId = _scrollRequestId;
         return true;
+
+        void CancelPendingScroll()
+        {
+            if (_scrollRequestId is null || _interactionTracker is null
+                || _interactionState is ScrollingInteractionState.Interaction)
+                return;
+
+            // A visible target supersedes an earlier destination too. Queue the stop even if
+            // the old animation has not started on the composition thread yet.
+            var position = ToTrackerPosition(Offset, CalculateScrollableArea(ZoomFactor));
+            _requestId = _interactionTracker.TryUpdatePosition(new Vector3D(position.X, position.Y, 0));
+            InterruptOperations();
+        }
     }
 
     /// <summary>
@@ -1813,6 +1834,9 @@ public partial class ScrollPresenter : ContentPresenter, IScrollable, IScrollAnc
         bool completeOnIdle = false)
     {
         CompleteScrollOperation(ScrollingOperationResult.Interrupted);
+        // ScrollViewer has no ScrollView operation owner, but its tracker animation still
+        // needs to remain pending until idle (including across ValuesChanged callbacks).
+        _scrollRequestAnimated = isAnimated || completeOnIdle;
         if (_scrollViewOwner is not { } owner)
             return ScrollView.NoCorrelationId;
 
@@ -1825,7 +1849,6 @@ public partial class ScrollPresenter : ContentPresenter, IScrollable, IScrollAnc
             return correlationId;
 
         _scrollCorrelationId = correlationId;
-        _scrollRequestAnimated = isAnimated || completeOnIdle;
         return correlationId;
     }
 
